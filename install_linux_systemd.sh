@@ -4,6 +4,7 @@ INSTALL_DIR=/opt/ipfs_monitor
 # get the path of directory this script is currently located in
 script_dir="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
+pip install -r $script_dir/requirements.txt # for older versions of pip
 pip install -r $script_dir/requirements.txt --break-system-packages
 
 sudo mkdir -p $INSTALL_DIR

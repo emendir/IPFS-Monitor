@@ -1,1 +1,2 @@
 IPFS-Toolkit>=0.5.20
+loguru
