@@ -1,11 +1,10 @@
-from scapy.all import *
 from loguru import logger
 import time
-from datetime import datetime
 import ipfs_api
 import subprocess
 import re
-
+import os
+import sys
 # how many seconds to wait before
 # giving up on a ping operation and applying IPFS limitations
 PING_COMMAND_TIMEOUT_S = 2
