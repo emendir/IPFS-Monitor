@@ -64,6 +64,19 @@ pip install -r IPFS-Monitor/requirements.txt --break-system-packages
 python3 IPFS-Monitor
 ```
 
+### Requirements
+
+- python3
+- pip for python3
+
+#### Debian:
+
+On Debian, python3 is already installed, and you can install pip like this:
+
+```sh
+sudo apt install python3-pip
+```
+
 ## Installation
 
 I've written an installer for Linux systems that use Systemd.
