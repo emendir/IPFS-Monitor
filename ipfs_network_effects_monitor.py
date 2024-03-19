@@ -105,7 +105,7 @@ def get_num_ipfs_peers():
     """Get the number of peers this IPFS node is connected to."""
     try:
         return len(list(dict(ipfs_api.http_client.swarm.peers())['Peers']))
-    except ipfs_api.ipfshttpclient.exceptions.ConnectionError:
+    except Exception:
         return 0
 
 
