@@ -1,0 +1,2 @@
+- add documentation in readme for whitelist and blacklist
+- 
