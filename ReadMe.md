@@ -60,7 +60,7 @@ Download this project, install the prerequisites listed in `requirements.txt` an
 
 ```sh
 git clone https://github.com/emendir/IPFS-Monitor
-pip install -r IPFS-Monitor/requirements.txt --break-system-packages
+pip install -r IPFS-Monitor/requirements.txt
 python3 IPFS-Monitor
 ```
 
@@ -68,21 +68,23 @@ python3 IPFS-Monitor
 
 - python3
 - pip for python3
+- virtualenv for python3
 
 #### Debian:
 
-On Debian, python3 is already installed, and you can install pip like this:
+On Debian you can install the requirements like this:
 
 ```sh
-sudo apt install python3-pip
+sudo apt install python3-virtualenv python3-pip git
 ```
 
 ## Installation
 
 I've written an installer for Linux systems that use Systemd.
-Read it first to make sure you're happy with what it does, e.g. using `pip install --break-system-packages`.
+Read it first to make sure you're happy with what it does.
 
 ```sh
+
 git clone https://github.com/emendir/IPFS-Monitor
 ./IPFS-Monitor/install_linux_systemd.sh
 ```
