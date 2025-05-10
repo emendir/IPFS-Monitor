@@ -1,3 +1,4 @@
+from time import sleep
 import toml
 import ipaddress
 from loguru import logger
@@ -36,16 +37,22 @@ DEFAULT_WHITELIST = [
 DEFAULT_BLACKLIST = []
 
 # Load configuration from a TOML file
+
+
 def load_config():
     try:
-        config = toml.load("config.toml")
+        config = toml.load(os.path.join(
+            os.path.dirname(__file__), "config.toml")
+        )
         whitelist = config.get("whitelist", DEFAULT_WHITELIST)
         blacklist = config.get("blacklist", DEFAULT_BLACKLIST)
+        logger.warning("Loaded blacklist and whitelist from config.")
     except Exception as e:
         logger.warning(f"Failed to load config: {e}, using defaults.")
         whitelist = DEFAULT_WHITELIST
         blacklist = DEFAULT_BLACKLIST
     return whitelist, blacklist
+
 
 whitelist, blacklist = load_config()
 
@@ -55,20 +62,22 @@ def get_complement_cidrs(allowed_cidrs, blocked_cidrs):
     full_range = ipaddress.IPv4Network("0.0.0.0/0")
     allowed = [ipaddress.IPv4Network(cidr) for cidr in allowed_cidrs]
     blocked = [ipaddress.IPv4Network(cidr) for cidr in blocked_cidrs]
-    
+
     excluded_ranges = set(allowed) - set(blocked)
-    
+
     result_ranges = [full_range]
     for exclude in sorted(excluded_ranges, key=lambda net: net.prefixlen, reverse=True):
         temp_ranges = []
         for rng in result_ranges:
-            if exclude.subnet_of(rng):  # Ensure the excluded range is within the current range
+            # Ensure the excluded range is within the current range
+            if exclude.subnet_of(rng):
                 temp_ranges.extend(rng.address_exclude(exclude))
             else:
                 temp_ranges.append(rng)
         result_ranges = temp_ranges
-    
+
     return result_ranges
+
 
 def apply_strict_filters():
     """Apply IPFS filters to block all IPs except the whitelisted ones."""
@@ -77,9 +86,11 @@ def apply_strict_filters():
         remove_all_filters()
 
         filters_to_apply = get_complement_cidrs(whitelist, blacklist)
-
-        for cidr in filters_to_apply:
-            multi_addr = f"/ip4/{cidr.network_address}/ipcidr/{cidr.prefixlen}"
+        multi_addr_filters = [
+            f"/ip4/{cidr.network_address}/ipcidr/{cidr.prefixlen}"
+            for cidr in filters_to_apply
+        ]
+        for multi_addr in multi_addr_filters:
             logger.debug(f"Adding filter: {multi_addr}")
             ipfs_api.add_swarm_filter(multi_addr)
     except ipfs_api.ipfshttpclient.exceptions.ErrorResponse:
@@ -93,7 +104,7 @@ def remove_all_filters():
     """Remove all currently applied IPFS filters."""
     try:
         logger.info("Removing all filters")
-        filters=ipfs_api.get_swarm_filters()
+        filters = ipfs_api.get_swarm_filters()
         for filter_entry in filters:
             logger.debug(f"Removing filter: {filter_entry}")
             ipfs_api.rm_swarm_filter(filter_entry)
@@ -124,8 +135,8 @@ def are_strict_filters_applied():
     """Check if only the correct filters are applied."""
     try:
 
-        filters=ipfs_api.get_swarm_filters()
-        
+        filters = ipfs_api.get_swarm_filters()
+
         expected_filters = {
             f"/ip4/{cidr.network_address}/ipcidr/{cidr.prefixlen}"
             for cidr in get_complement_cidrs(whitelist, blacklist)
@@ -169,17 +180,13 @@ def check_pings():
         time.sleep(1)  # 1-second interval between pings
     if peers_count > MAX_PEERS_COUNT and not limitation:
         apply_strict_filters()
-    if lost_pings and not limitation:
-        average_time = -1
-        apply_strict_filters()
-        time.sleep(1)
-    else:
-        average_time = int(total_time / PING_SAMPLE_COUNT)
-
-        if average_time > PING_LIMIT_THRESHOLD_MS and not limitation:
-            apply_strict_filters()
-        elif average_time < PING_UNLIMIT_THRESHOLD_MS and peers_count < MAX_PEERS_COUNT and limitation:
+    average_time = int(total_time / PING_SAMPLE_COUNT)
+    if limitation:
+        if not lost_pings and average_time < PING_UNLIMIT_THRESHOLD_MS and peers_count < MAX_PEERS_COUNT:
             remove_strict_filters()
+    else:
+        if lost_pings or average_time > PING_LIMIT_THRESHOLD_MS:
+            apply_strict_filters()
     logger.info(f"{average_time},{peers_count},{int(limitation)}")
 
 
@@ -210,6 +217,8 @@ def run_monitor():
             check_pings()
         except ipfs_api.ipfshttpclient.exceptions.ConnectionError as e:
             logger.error(f"ConnectionError: {e}")
+        sleep(1)
+
 
 if __name__ == '__main__':
     run_monitor()
