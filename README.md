@@ -1,4 +1,5 @@
-# IPFS-Monitor
+
+# IPFS Throttler
 
 A system for monitoring and limiting IPFS' effect on LAN performance.
 
@@ -59,9 +60,9 @@ I encourage you to adapt this script for other network metrics and IPFS limitati
 Download this project, install the prerequisites listed in `requirements.txt` and run the folder with Python.
 
 ```sh
-git clone https://github.com/emendir/IPFS-Monitor
-pip install -r IPFS-Monitor/requirements.txt
-python3 IPFS-Monitor
+git clone https://github.com/emendir/ipfs-throttler
+pip install -r ipfs-throttler/requirements.txt
+python3 ipfs-throttler
 ```
 
 ### Requirements
@@ -85,8 +86,8 @@ Read it first to make sure you're happy with what it does.
 
 ```sh
 
-git clone https://github.com/emendir/IPFS-Monitor
-./IPFS-Monitor/install_linux_systemd.sh
+git clone https://github.com/emendir/ipfs-throttler
+./ipfs-throttler/install_linux_systemd.sh
 ```
 
-Logs are written to `/opt/ipfs_monitor/IPFS_Ping_Monitor.csv`
+Logs are written to `/opt/ipfs_throttler/IPFS_Ping_Monitor.csv`

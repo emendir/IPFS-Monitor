@@ -1,3 +1,4 @@
+import statistics
 from time import sleep
 import toml
 import ipaddress
@@ -15,11 +16,14 @@ PING_COMMAND_TIMEOUT_S = 2
 # upper and lower thresholds for applying/removing IPFS limitations
 PING_LIMIT_THRESHOLD_MS = 40
 PING_UNLIMIT_THRESHOLD_MS = 30
+PING_NOTIFY_THRESHOLD_MS = 300
 MAX_PEERS_COUNT = 800
 
-PING_IP_ADDRESS = '8.8.8.8'  # IP address to use for ping tests
+PING_TARGET = "8.8.8.8"
 # number of pings to average when compiling latency metrics
 PING_SAMPLE_COUNT = 10
+WINDOW_SIZE = 5
+PING_INTERVAL = 1.0  # seconds
 # path of the file to which to write logs
 LOG_FILE_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
@@ -148,14 +152,30 @@ def are_strict_filters_applied():
         logger.error(f"ConnectionError: {e}")
         return False
 
+# 
+# def notify(title, message):
+#     logger.info(f"{title}: {message}")
+#     result = subprocess.run(["notify-send", title, message])
+#     if result.stderr:
+#         logger.error(result.stderr)
+
+import gi
+gi.require_version('Notify', '0.7')
+from gi.repository import Notify
+
+# Initialize notifications once
+Notify.init("Ping Latency Monitor")
+
+def notify(title, message):
+    n = Notify.Notification.new(title, message)
+    n.set_urgency(Notify.Urgency.NORMAL)
+    n.show()
 
 def get_ping_latency(PING_IP_ADDRESS, timeout):
     """"""
     ping_process = subprocess.Popen(
-        ['ping', '-c', '1', '-W', str(timeout), PING_IP_ADDRESS], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    start_time = time.time()
+        ['ping', '-U', '-c', '1', '-W', str(timeout), PING_IP_ADDRESS], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, _ = ping_process.communicate()
-    end_time = time.time()
 
     if ping_process.returncode == 0:
         match = re.search(r'time=([\d.]+) ms', output.decode('utf-8'))
@@ -163,31 +183,79 @@ def get_ping_latency(PING_IP_ADDRESS, timeout):
             return float(match.group(1))
 
 
+latencies = []
+notified = False
+
+def ping_once()->float|None:
+    try:
+        output = subprocess.run(
+            ["ping", "-c", "1", "-w", "2", PING_TARGET],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if output.returncode != 0:
+            return None  # Network unreachable or timeout
+
+        # Extract latency from output
+        for line in output.stdout.splitlines():
+            if "time=" in line:
+                latency = float(line.split("time=")[1].split(" ")[0])
+                return latency
+
+    except Exception as e:
+        return None
+
+    return None
+
+
+def do_latency_measurement() -> float | None:
+
+    latency = ping_once()
+
+    if latency is not None:
+        latencies.append(latency)
+        if len(latencies) > WINDOW_SIZE:
+            latencies.pop(0)
+
+        avg_latency = statistics.mean(latencies)
+        # print(avg_latency)
+        return avg_latency
+    else:
+        # No connectivity, clear state
+        latencies.clear()
+        return None
+
+
 def check_pings():
     """
     Gather network metrics, limit or unlimit IPFS accordingly, log results."""
+    global notified
     peers_count = get_num_ipfs_peers()
     limitation = are_strict_filters_applied()
 
-    total_time = 0
-    lost_pings = False
-    for _ in range(PING_SAMPLE_COUNT):
-        latency = get_ping_latency(PING_IP_ADDRESS, PING_COMMAND_TIMEOUT_S)
-        if not latency:
-            lost_pings = True
-            break
-        total_time += latency
-        time.sleep(1)  # 1-second interval between pings
+    avg_latency = do_latency_measurement()
     if peers_count > MAX_PEERS_COUNT and not limitation:
         apply_strict_filters()
-    average_time = int(total_time / PING_SAMPLE_COUNT)
+
     if limitation:
-        if not lost_pings and average_time < PING_UNLIMIT_THRESHOLD_MS and peers_count < MAX_PEERS_COUNT:
+        if avg_latency and avg_latency < PING_UNLIMIT_THRESHOLD_MS and peers_count < MAX_PEERS_COUNT:
             remove_strict_filters()
     else:
-        if lost_pings or average_time > PING_LIMIT_THRESHOLD_MS:
+        if avg_latency and avg_latency > PING_LIMIT_THRESHOLD_MS:
             apply_strict_filters()
-    logger.info(f"{average_time},{peers_count},{int(limitation)}")
+
+    if avg_latency and avg_latency > PING_NOTIFY_THRESHOLD_MS:
+        if not notified:
+            notify(
+                "⚠️ High Ping Latency ⚠️",
+                f"Average ping to {PING_TARGET} is {
+                    int(avg_latency)}ms (>{PING_NOTIFY_THRESHOLD_MS}ms)"
+            )
+            notified = True
+    else:
+        notified = False  # Reset so we can notify again if needed
+    logger.info(f"{avg_latency},{peers_count},{int(limitation)}")
 
 
 def get_num_ipfs_peers():
