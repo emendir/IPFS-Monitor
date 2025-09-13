@@ -10,7 +10,7 @@
 
 
 """:"
-SSH_ADDRESS=$1 # leave blank to install locally (if DEF_SSH_ADDRESS is also blank)
+SSH_ADDRESS=$1 # leave blank to install locally (if DEF_SSH_ADDRESS is also blank), or set to "-" to force installing locally
 INSTALL_DIR=$2 # absolute path to copy project to
 INSTALL=$3 # ('true' | 'false') whether or not to run install_prereqs.sh & setup.sh and install systemd-units after copying files
 
@@ -24,7 +24,7 @@ RSYNC_IGNORE=$PROJ_DIR/.gitignore
 SYSTEMD_UNITS_DIR="systemd_units" # path relative to PROJ_DIR which contains systemd unit files to be installed
 
 # absolute path to copy this projects files to for installation
-DEF_INSTALL_DIR=$HOME/$PROJ_NAME
+DEF_INSTALL_DIR=/opt/$PROJ_NAME
 # whether or not to run the installer
 # on the remote system after copying over the files
 DEF_INSTALL=1 
@@ -37,6 +37,10 @@ DEF_SSH_ADDRESS=""
 # if no parameter was passed
 if [ -z "$SSH_ADDRESS" ]; then
   SSH_ADDRESS=$DEF_SSH_ADDRESS
+fi
+# for forcing local installation
+if [ "$SSH_ADDRESS" = "-" ]; then
+  SSH_ADDRESS=""
 fi
 
 # if no parameter was passed
@@ -103,7 +107,7 @@ if ! [ -z "$SSH_ADDRESS" ];then
     notify "Re-Running this installer on remote machine." $BLUE
     echo ""
     # run this script on remote host to install this project there
-    ssh $SSH_ADDRESS -t "$INSTALL_DIR/$REL_SCRIPT_PATH '' $INSTALL_DIR $INSTALL"
+    ssh $SSH_ADDRESS -t "$INSTALL_DIR/$REL_SCRIPT_PATH '-' $INSTALL_DIR $INSTALL"
   fi
     
   exit 0 # exit this script to avoid installing locally
@@ -155,8 +159,9 @@ if [ "$INSTALL" -eq 1 ]; then
         sudo systemctl daemon-reexec
         sudo systemctl daemon-reload
 
-        # Enable and start the unit
-        sudo systemctl enable --now "$(basename "$unit")"
+        # Enable and start the unit, restarting if already existant
+        sudo systemctl enable "$(basename "$unit")"
+        sudo systemctl restart "$(basename "$unit")"
     done
   else
     echo -e "${YELLOW}Didn't find Systemd unit files, directory doesn't exist:"

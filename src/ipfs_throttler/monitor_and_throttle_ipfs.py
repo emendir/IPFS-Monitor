@@ -1,3 +1,6 @@
+import socket
+import gi
+from gi.repository import Notify
 import statistics
 from time import sleep
 import toml
@@ -9,6 +12,7 @@ import subprocess
 import re
 import os
 import sys
+
 # how many seconds to wait before
 # giving up on a ping operation and applying IPFS limitations
 PING_COMMAND_TIMEOUT_S = 2
@@ -26,10 +30,9 @@ WINDOW_SIZE = 5
 PING_INTERVAL = 1.0  # seconds
 # path of the file to which to write logs
 LOG_FILE_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    'IPFS_Ping_Monitor.csv'
+    os.path.dirname(os.path.abspath(__file__)), "IPFS_Ping_Monitor.csv"
 )
-
+CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "config.toml")
 
 # Default whitelist and blacklist
 DEFAULT_WHITELIST = [
@@ -44,10 +47,10 @@ DEFAULT_BLACKLIST = []
 
 
 def load_config():
+    if not os.path.exists(CONFIG_FILE_PATH):
+        toml.dump({"whitelist": [], "bloacklist": []}, open(CONFIG_FILE_PATH, "w+"))
     try:
-        config = toml.load(os.path.join(
-            os.path.dirname(__file__), "config.toml")
-        )
+        config = toml.load(CONFIG_FILE_PATH)
         whitelist = config.get("whitelist", DEFAULT_WHITELIST)
         blacklist = config.get("blacklist", DEFAULT_BLACKLIST)
         logger.warning("Loaded blacklist and whitelist from config.")
@@ -59,6 +62,29 @@ def load_config():
 
 
 whitelist, blacklist = load_config()
+for multiaddr in ipfs_api.client._http_client.bootstrap.list()["Peers"]:
+    parts = multiaddr.split("/")
+    parts.remove("")
+    scheme = parts[0]
+    address = parts[1]
+    ip_address = None
+    match scheme:
+        case "ip4":
+            ip_address = address
+        case "ip6":
+            print("Not filtering IPv6...")
+        case "dnsaddr":
+            try:
+                ip_address = socket.gethostbyname(address)
+            except socket.gaierror:
+                print(f"Failed to resolve domain: {address}")
+        case _:
+            print(f"Failed to parse multiaddr: {multiaddr}")
+    if ip_address:
+        whitelist.append(f"{ip_address}/32")
+print("\nWhitelist:")
+for net_addr in whitelist:
+    print(f"  {net_addr}")
 
 
 def get_complement_cidrs(allowed_cidrs, blocked_cidrs):
@@ -138,7 +164,6 @@ def remove_strict_filters():
 def are_strict_filters_applied():
     """Check if only the correct filters are applied."""
     try:
-
         filters = ipfs_api.get_swarm_filters()
 
         expected_filters = {
@@ -152,33 +177,38 @@ def are_strict_filters_applied():
         logger.error(f"ConnectionError: {e}")
         return False
 
-# 
+
+#
 # def notify(title, message):
 #     logger.info(f"{title}: {message}")
 #     result = subprocess.run(["notify-send", title, message])
 #     if result.stderr:
 #         logger.error(result.stderr)
 
-import gi
-gi.require_version('Notify', '0.7')
-from gi.repository import Notify
+
+gi.require_version("Notify", "0.7")
 
 # Initialize notifications once
 Notify.init("Ping Latency Monitor")
+
 
 def notify(title, message):
     n = Notify.Notification.new(title, message)
     n.set_urgency(Notify.Urgency.NORMAL)
     n.show()
 
+
 def get_ping_latency(PING_IP_ADDRESS, timeout):
     """"""
     ping_process = subprocess.Popen(
-        ['ping', '-U', '-c', '1', '-W', str(timeout), PING_IP_ADDRESS], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ["ping", "-U", "-c", "1", "-W", str(timeout), PING_IP_ADDRESS],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     output, _ = ping_process.communicate()
 
     if ping_process.returncode == 0:
-        match = re.search(r'time=([\d.]+) ms', output.decode('utf-8'))
+        match = re.search(r"time=([\d.]+) ms", output.decode("utf-8"))
         if match:
             return float(match.group(1))
 
@@ -186,7 +216,8 @@ def get_ping_latency(PING_IP_ADDRESS, timeout):
 latencies = []
 notified = False
 
-def ping_once()->float|None:
+
+def ping_once() -> float | None:
     try:
         output = subprocess.run(
             ["ping", "-c", "1", "-w", "2", PING_TARGET],
@@ -210,7 +241,6 @@ def ping_once()->float|None:
 
 
 def do_latency_measurement() -> float | None:
-
     latency = ping_once()
 
     if latency is not None:
@@ -239,7 +269,11 @@ def check_pings():
         apply_strict_filters()
 
     if limitation:
-        if avg_latency and avg_latency < PING_UNLIMIT_THRESHOLD_MS and peers_count < MAX_PEERS_COUNT:
+        if (
+            avg_latency
+            and avg_latency < PING_UNLIMIT_THRESHOLD_MS
+            and peers_count < MAX_PEERS_COUNT
+        ):
             remove_strict_filters()
     else:
         if avg_latency and avg_latency > PING_LIMIT_THRESHOLD_MS:
@@ -249,8 +283,9 @@ def check_pings():
         if not notified:
             notify(
                 "⚠️ High Ping Latency ⚠️",
-                f"Average ping to {PING_TARGET} is {
-                    int(avg_latency)}ms (>{PING_NOTIFY_THRESHOLD_MS}ms)"
+                f"Average ping to {PING_TARGET} is {int(avg_latency)}ms (>{
+                    PING_NOTIFY_THRESHOLD_MS
+                }ms)",
             )
             notified = True
     else:
@@ -261,26 +296,27 @@ def check_pings():
 def get_num_ipfs_peers():
     """Get the number of peers this IPFS node is connected to."""
     try:
-        return len(list(dict(ipfs_api.http_client.swarm.peers())['Peers']))
+        return len(list(dict(ipfs_api.http_client.swarm.peers())["Peers"]))
     except Exception:
         return 0
 
 
 # Set up log rotation with retention
-logger.remove(0)    # remove default logger
+logger.remove(0)  # remove default logger
 # add custom logger for printing to console
 logger.add(sys.stdout, format="<level>{message}</level>")
 # add logger for writing to log file
 logger.add(
     LOG_FILE_PATH,
     format="{time:DD-MMM-YYYY HH:mm:ss},{message}",
-    rotation="1 MB", retention="5 days"
+    rotation="1 MB",
+    retention="5 days",
 )
 
 
 def run_monitor():
     remove_strict_filters()
-    while (True):
+    while True:
         try:
             check_pings()
         except ipfs_api.ipfshttpclient.exceptions.ConnectionError as e:
@@ -288,5 +324,5 @@ def run_monitor():
         sleep(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run_monitor()

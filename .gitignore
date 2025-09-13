@@ -1,5 +1,25 @@
+# >>> CLEANUP
+
+# This section contains patterns to be deleted by `make clean`
+build
+dist
+*.egg-info
+**/.mypy_cache/
+__pycache__
+.pytest_cache
+.ruff_cache
+.benchmarks
+.ccls-cache
+
+*.pyc
 *.log
+*.bkp
+
 *.csv
-**/__pycache__
-.mypy_cache
-.ropeproject
+
+# <<< CLEANUP
+
+
+
+
+src/ipfs_throttler/config.toml
