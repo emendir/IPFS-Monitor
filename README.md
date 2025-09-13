@@ -1,4 +1,3 @@
-
 # IPFS Throttler
 
 A system for monitoring and limiting IPFS' effect on LAN performance.
@@ -87,7 +86,52 @@ Read it first to make sure you're happy with what it does.
 ```sh
 
 git clone https://github.com/emendir/ipfs-throttler
-./ipfs-throttler/install_linux_systemd.sh
+./ipfs-throttler/install.sh
 ```
 
 Logs are written to `/opt/ipfs_throttler/IPFS_Ping_Monitor.csv`
+
+## Contributing
+
+### Get Involved
+
+- GitHub Discussions: if you want to share ideas
+- GitHub Issues: if you find bugs, other issues, or would like to submit feature requests
+- GitHub Merge Requests: if you think you know what you're doing, you're very welcome!
+
+### Donations
+
+To support me in my work on this and other projects, you can make donations with the following currencies:
+
+- **Bitcoin:** `BC1Q45QEE6YTNGRC5TSZ42ZL3MWV8798ZEF70H2DG0`
+- **Ethereum:** `0xA32C3bBC2106C986317f202B3aa8eBc3063323D4`
+- [**Fiat** (via Credit or Debit Card, Apple Pay, Google Pay, Revolut Pay)](https://checkout.revolut.com/pay/4e4d24de-26cf-4e7d-9e84-ede89ec67f32)
+
+Donations help me:
+- dedicate more time to developing and maintaining open-source projects
+- cover costs for IT infrastructure
+- finance projects requiring additional hardware & compute
+
+## About the Developer
+
+This project is developed by a human one-man team, publishing under the name _Emendir_.  
+I build open technologies trying to improve our world;
+learning, working and sharing under the principle:
+
+> _Freely I have received, freely I give._
+
+Feel welcome to join in with code contributions, discussions, ideas and more!
+
+## Open-Source in the Public Domain
+
+I dedicate this project to the public domain.
+It is open source and free to use, share, modify, and build upon without restrictions or conditions.
+
+I make no patent or trademark claims over this project.  
+
+Formally, you may use this project under either the: 
+- [MIT No Attribution (MIT-0)](https://choosealicense.com/licenses/mit-0/) or
+- [Creative Commons Zero (CC0)](https://choosealicense.com/licenses/cc0-1.0/)
+licence at your choice.  
+
+

@@ -9,7 +9,8 @@ version = "0.0.2"
 description = "A system for monitoring and limiting IPFS' effect on LAN performance."
 readme = {file = "README.md", content-type = "text/markdown"}
 authors = [{ name = "Emendir" , email = "dev@emendir.tech"}]
-license = "CC0-1.0"
+license = "MIT-0 OR CC0-1.0"
+license-files = ["LICENSE", "LICENSE-CC0"]
 requires-python = ">=3.6"
 classifiers = [
     "Programming Language :: Python :: 3",
